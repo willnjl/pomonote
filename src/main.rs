@@ -1,7 +1,6 @@
 mod commands;
 mod display;
 mod models;
-
 use crossterm::{
     event::{ self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode },
     execute,
@@ -9,9 +8,11 @@ use crossterm::{
 };
 use models::todo::{ Todo, TodoStatus };
 use ratatui::{ backend::{ Backend, CrosstermBackend }, Terminal };
-use std::{ error::Error, io };
+use std::{ error::Error, io, panic };
 
 fn main() -> Result<(), Box<dyn Error>> {
+    // Setup better panic handler
+    setup_panic_handler();
     // setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -19,22 +20,53 @@ fn main() -> Result<(), Box<dyn Error>> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
+    // create app and run it
     let mut todos = get_todos();
     let mut input_buffer = String::new();
     let res = run_app(&mut terminal, &mut todos, &mut input_buffer);
 
-    // restore terminal
-    disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture)?;
-    terminal.show_cursor()?;
+    // restore terminal - use result to ensure proper cleanup
+    let cleanup_result = cleanup_terminal(terminal);
 
+    // Print any errors after cleanup
     if let Err(err) = res {
-        println!("{err:?}");
+        eprintln!("Application error: {err:?}");
     }
+
+    cleanup_result?;
 
     Ok(())
 }
-use std::time::Duration;
+
+fn setup_panic_handler() {
+    let original_hook = panic::take_hook();
+    panic::set_hook(
+        Box::new(move |panic_info| {
+            let _ = disable_raw_mode();
+            let _ = execute!(io::stdout(), LeaveAlternateScreen, DisableMouseCapture);
+            original_hook(panic_info);
+        })
+    );
+}
+
+fn cleanup_terminal<B: Backend + io::Write>(
+    mut terminal: Terminal<B>
+) -> Result<(), Box<dyn Error>> {
+    // Disable raw mode first
+    disable_raw_mode()?;
+
+    // Clear the terminal
+    terminal.clear()?;
+
+    // Leave alternate screen and restore mouse
+    execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture)?;
+
+    // Show cursor
+    terminal.show_cursor()?;
+
+    Ok(())
+}
+
 fn run_app<B: Backend>(
     terminal: &mut Terminal<B>,
     todos: &mut Vec<Todo>,
@@ -44,12 +76,14 @@ fn run_app<B: Backend>(
     loop {
         terminal.draw(|f| display::ui(f, todos, input_buffer, &output_buffer))?;
 
-        if event::poll(Duration::from_secs(1))? {
+        if event::poll(std::time::Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
                 output_buffer.clear();
-                let mut should_save = false; // Track if we need to save
-
                 match key.code {
+                    KeyCode::Esc => {
+                        // Exit immediately
+                        return Ok(());
+                    }
                     KeyCode::Enter => {
                         let input = input_buffer.trim();
                         if !input.is_empty() {
@@ -57,112 +91,17 @@ fn run_app<B: Backend>(
                             let command = parts[0].to_lowercase();
 
                             match command.as_str() {
-                                "add" => {
-                                    if parts.len() > 1 && !parts[1].is_empty() {
-                                        let description = parts[1].to_string();
-                                        match commands::add::add_todo(todos, description) {
-                                            Ok(msg) => {
-                                                output_buffer = msg;
-                                                should_save = true;
-                                            }
-                                            Err(e) => {
-                                                output_buffer = e;
-                                            }
-                                        }
-                                    } else {
-                                        output_buffer = "Usage: add <description>".to_string();
-                                    }
-                                }
-                                "remove" | "rm" => {
-                                    if parts.len() > 1 {
-                                        if let Ok(id) = parts[1].parse::<u32>() {
-                                            match commands::remove::remove_todo(todos, id) {
-                                                Ok(msg) => {
-                                                    output_buffer = msg;
-                                                    should_save = true;
-                                                }
-                                                Err(e) => {
-                                                    output_buffer = e;
-                                                }
-                                            }
-                                        } else {
-                                            output_buffer = "Invalid ID".to_string();
-                                        }
-                                    } else {
-                                        output_buffer = "Usage: remove <id>".to_string();
-                                    }
-                                }
-                                "start" => {
-                                    if parts.len() > 1 {
-                                        if let Ok(id) = parts[1].parse::<u32>() {
-                                            match commands::start::start_todo(todos, id) {
-                                                Ok(msg) => {
-                                                    output_buffer = msg;
-                                                    should_save = true;
-                                                }
-                                                Err(e) => {
-                                                    output_buffer = e;
-                                                }
-                                            }
-                                        } else {
-                                            output_buffer = "Invalid ID".to_string();
-                                        }
-                                    } else {
-                                        output_buffer = "Usage: start <id>".to_string();
-                                    }
-                                }
-                                "stop" => {
-                                    if parts.len() > 1 {
-                                        if let Ok(id) = parts[1].parse::<u32>() {
-                                            match commands::stop::stop_todo(todos, id) {
-                                                Ok(msg) => {
-                                                    output_buffer = msg;
-                                                    should_save = true;
-                                                }
-                                                Err(e) => {
-                                                    output_buffer = e;
-                                                }
-                                            }
-                                        } else {
-                                            output_buffer = "Invalid ID".to_string();
-                                        }
-                                    } else {
-                                        output_buffer = "Usage: stop <id>".to_string();
-                                    }
-                                }
-                                "complete" => {
-                                    if parts.len() > 1 {
-                                        if let Ok(id) = parts[1].parse::<u32>() {
-                                            match commands::complete::complete_todo(todos, id) {
-                                                Ok(msg) => {
-                                                    output_buffer = msg;
-                                                    should_save = true;
-                                                }
-                                                Err(e) => {
-                                                    output_buffer = e;
-                                                }
-                                            }
-                                        } else {
-                                            output_buffer = "Invalid ID".to_string();
-                                        }
-                                    } else {
-                                        output_buffer = "Usage: complete <id>".to_string();
-                                    }
-                                }
-                                "quit" => {
+                                "quit" | "exit" | "q" => {
+                                    // Exit immediately
                                     return Ok(());
                                 }
+                                // ... rest of your commands
                                 _ => {
                                     output_buffer = "Invalid command".to_string();
                                 }
                             }
                         }
                         input_buffer.clear();
-
-                        // Save to disk if any command modified the todos
-                        if should_save {
-                            Todo::save_all(todos).ok();
-                        }
                     }
                     KeyCode::Char(c) => {
                         input_buffer.push(c);
@@ -170,24 +109,12 @@ fn run_app<B: Backend>(
                     KeyCode::Backspace => {
                         input_buffer.pop();
                     }
-                    KeyCode::Esc => {
-                        return Ok(());
-                    }
                     _ => {}
                 }
             }
         }
     }
 }
-
-// Placeholder for loading todos
-// fn get_todos() -> Vec<Todo> {
-//     vec![
-//         Todo::new(1, "Write a blog post".to_string()),
-//         Todo::new(2, "Learn Rust".to_string()),
-//         Todo::new(3, "Go for a run".to_string())
-//     ]
-// }
 
 fn get_todos() -> Vec<Todo> {
     Todo::load_all()
