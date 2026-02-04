@@ -19,7 +19,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    // create app and run it
     let mut todos = get_todos();
     let mut input_buffer = String::new();
     let res = run_app(&mut terminal, &mut todos, &mut input_buffer);
@@ -35,6 +34,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+use std::time::Duration;
 
 fn run_app<B: Backend>(
     terminal: &mut Terminal<B>,
@@ -44,36 +44,21 @@ fn run_app<B: Backend>(
     let mut output_buffer = String::new();
     loop {
         terminal.draw(|f| display::ui(f, todos, input_buffer, &output_buffer))?;
+        if event::poll(Duration::from_millis(500))? {
+            if let Event::Key(key) = event::read()? {
+                output_buffer.clear();
+                match key.code {
+                    KeyCode::Enter => {
+                        let input = input_buffer.trim();
+                        if !input.is_empty() {
+                            let parts: Vec<&str> = input.splitn(2, ' ').collect();
+                            let command = parts[0].to_lowercase();
 
-        if let Event::Key(key) = event::read()? {
-            output_buffer.clear();
-            match key.code {
-                KeyCode::Enter => {
-                    let input = input_buffer.trim();
-                    if !input.is_empty() {
-                        let parts: Vec<&str> = input.splitn(2, ' ').collect();
-                        let command = parts[0].to_lowercase();
-
-                        match command.as_str() {
-                            "add" => {
-                                if parts.len() > 1 && !parts[1].is_empty() {
-                                    let description = parts[1].to_string();
-                                    match commands::add::add_todo(todos, description) {
-                                        Ok(msg) => {
-                                            output_buffer = msg;
-                                        }
-                                        Err(e) => {
-                                            output_buffer = e;
-                                        }
-                                    }
-                                } else {
-                                    output_buffer = "Usage: add <description>".to_string();
-                                }
-                            }
-                            "remove" | "rm" => {
-                                if parts.len() > 1 {
-                                    if let Ok(id) = parts[1].parse::<u32>() {
-                                        match commands::remove::remove_todo(todos, id) {
+                            match command.as_str() {
+                                "add" => {
+                                    if parts.len() > 1 && !parts[1].is_empty() {
+                                        let description = parts[1].to_string();
+                                        match commands::add::add_todo(todos, description) {
                                             Ok(msg) => {
                                                 output_buffer = msg;
                                             }
@@ -82,86 +67,102 @@ fn run_app<B: Backend>(
                                             }
                                         }
                                     } else {
-                                        output_buffer = "Invalid ID".to_string();
+                                        output_buffer = "Usage: add <description>".to_string();
                                     }
-                                } else {
-                                    output_buffer = "Usage: remove <id>".to_string();
                                 }
-                            }
-                            "start" => {
-                                if parts.len() > 1 {
-                                    if let Ok(id) = parts[1].parse::<u32>() {
-                                        match commands::start::start_todo(todos, id) {
-                                            Ok(msg) => {
-                                                output_buffer = msg;
+                                "remove" | "rm" => {
+                                    if parts.len() > 1 {
+                                        if let Ok(id) = parts[1].parse::<u32>() {
+                                            match commands::remove::remove_todo(todos, id) {
+                                                Ok(msg) => {
+                                                    output_buffer = msg;
+                                                }
+                                                Err(e) => {
+                                                    output_buffer = e;
+                                                }
                                             }
-                                            Err(e) => {
-                                                output_buffer = e;
-                                            }
+                                        } else {
+                                            output_buffer = "Invalid ID".to_string();
                                         }
                                     } else {
-                                        output_buffer = "Invalid ID".to_string();
+                                        output_buffer = "Usage: remove <id>".to_string();
                                     }
-                                } else {
-                                    output_buffer = "Usage: start <id>".to_string();
                                 }
-                            }
-                            "stop" => {
-                                if parts.len() > 1 {
-                                    if let Ok(id) = parts[1].parse::<u32>() {
-                                        match commands::stop::stop_todo(todos, id) {
-                                            Ok(msg) => {
-                                                output_buffer = msg;
+                                "start" => {
+                                    if parts.len() > 1 {
+                                        if let Ok(id) = parts[1].parse::<u32>() {
+                                            match commands::start::start_todo(todos, id) {
+                                                Ok(msg) => {
+                                                    output_buffer = msg;
+                                                }
+                                                Err(e) => {
+                                                    output_buffer = e;
+                                                }
                                             }
-                                            Err(e) => {
-                                                output_buffer = e;
-                                            }
+                                        } else {
+                                            output_buffer = "Invalid ID".to_string();
                                         }
                                     } else {
-                                        output_buffer = "Invalid ID".to_string();
+                                        output_buffer = "Usage: start <id>".to_string();
                                     }
-                                } else {
-                                    output_buffer = "Usage: stop <id>".to_string();
                                 }
-                            }
-                            "complete" => {
-                                if parts.len() > 1 {
-                                    if let Ok(id) = parts[1].parse::<u32>() {
-                                        match commands::complete::complete_todo(todos, id) {
-                                            Ok(msg) => {
-                                                output_buffer = msg;
+                                "stop" => {
+                                    if parts.len() > 1 {
+                                        if let Ok(id) = parts[1].parse::<u32>() {
+                                            match commands::stop::stop_todo(todos, id) {
+                                                Ok(msg) => {
+                                                    output_buffer = msg;
+                                                }
+                                                Err(e) => {
+                                                    output_buffer = e;
+                                                }
                                             }
-                                            Err(e) => {
-                                                output_buffer = e;
-                                            }
+                                        } else {
+                                            output_buffer = "Invalid ID".to_string();
                                         }
                                     } else {
-                                        output_buffer = "Invalid ID".to_string();
+                                        output_buffer = "Usage: stop <id>".to_string();
                                     }
-                                } else {
-                                    output_buffer = "Usage: complete <id>".to_string();
                                 }
-                            }
-                            "quit" => {
-                                return Ok(());
-                            }
-                            _ => {
-                                output_buffer = "Invalid command".to_string();
+                                "complete" => {
+                                    if parts.len() > 1 {
+                                        if let Ok(id) = parts[1].parse::<u32>() {
+                                            match commands::complete::complete_todo(todos, id) {
+                                                Ok(msg) => {
+                                                    output_buffer = msg;
+                                                }
+                                                Err(e) => {
+                                                    output_buffer = e;
+                                                }
+                                            }
+                                        } else {
+                                            output_buffer = "Invalid ID".to_string();
+                                        }
+                                    } else {
+                                        output_buffer = "Usage: complete <id>".to_string();
+                                    }
+                                }
+                                "quit" => {
+                                    return Ok(());
+                                }
+                                _ => {
+                                    output_buffer = "Invalid command".to_string();
+                                }
                             }
                         }
+                        input_buffer.clear();
                     }
-                    input_buffer.clear();
+                    KeyCode::Char(c) => {
+                        input_buffer.push(c);
+                    }
+                    KeyCode::Backspace => {
+                        input_buffer.pop();
+                    }
+                    KeyCode::Esc => {
+                        return Ok(());
+                    }
+                    _ => {}
                 }
-                KeyCode::Char(c) => {
-                    input_buffer.push(c);
-                }
-                KeyCode::Backspace => {
-                    input_buffer.pop();
-                }
-                KeyCode::Esc => {
-                    return Ok(());
-                }
-                _ => {}
             }
         }
     }
