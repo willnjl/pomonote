@@ -4,16 +4,13 @@ mod models;
 mod table;
 
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
+    event::{ self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode },
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{ disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen },
 };
-use models::todo::{Todo, TodoStatus};
-use ratatui::{
-    backend::{Backend, CrosstermBackend},
-    Terminal,
-};
-use std::{error::Error, io};
+use models::todo::{ Todo, TodoStatus };
+use ratatui::{ backend::{ Backend, CrosstermBackend }, Terminal };
+use std::{ error::Error, io };
 
 fn main() -> Result<(), Box<dyn Error>> {
     // setup terminal
@@ -30,11 +27,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // restore terminal
     disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
-    )?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture)?;
     terminal.show_cursor()?;
 
     if let Err(err) = res {
@@ -47,12 +40,14 @@ fn main() -> Result<(), Box<dyn Error>> {
 fn run_app<B: Backend>(
     terminal: &mut Terminal<B>,
     todos: &mut Vec<Todo>,
-    input_buffer: &mut String,
+    input_buffer: &mut String
 ) -> io::Result<()> {
+    let mut output_buffer = String::new();
     loop {
-        terminal.draw(|f| display::ui(f, todos, input_buffer))?;
+        terminal.draw(|f| display::ui(f, todos, input_buffer, &output_buffer))?;
 
         if let Event::Key(key) = event::read()? {
+            output_buffer.clear();
             match key.code {
                 KeyCode::Enter => {
                     let input = input_buffer.trim();
@@ -65,50 +60,74 @@ fn run_app<B: Backend>(
                                 if parts.len() > 1 && !parts[1].is_empty() {
                                     let description = parts[1].to_string();
                                     if let Err(e) = commands::add::add_todo(todos, description) {
-                                        // TODO: display error in UI
+                                        output_buffer = e.to_string();
                                     }
+                                } else {
+                                    output_buffer = "Usage: add <description>".to_string();
                                 }
                             }
                             "remove" | "rm" => {
                                 if parts.len() > 1 {
                                     if let Ok(id) = parts[1].parse::<u32>() {
                                         if let Err(e) = commands::remove::remove_todo(todos, id) {
-                                            // TODO: display error in UI
+                                            output_buffer = e.to_string();
                                         }
+                                    } else {
+                                        output_buffer = "Invalid ID".to_string();
                                     }
+                                } else {
+                                    output_buffer = "Usage: remove <id>".to_string();
                                 }
                             }
                             "start" => {
                                 if parts.len() > 1 {
                                     if let Ok(id) = parts[1].parse::<u32>() {
                                         if let Err(e) = commands::start::start_todo(todos, id) {
-                                            // TODO: display error in UI
+                                            output_buffer = e.to_string();
                                         }
+                                    } else {
+                                        output_buffer = "Invalid ID".to_string();
                                     }
+                                } else {
+                                    output_buffer = "Usage: start <id>".to_string();
                                 }
                             }
                             "stop" => {
                                 if parts.len() > 1 {
                                     if let Ok(id) = parts[1].parse::<u32>() {
                                         if let Err(e) = commands::stop::stop_todo(todos, id) {
-                                            // TODO: display error in UI
+                                            output_buffer = e.to_string();
                                         }
+                                    } else {
+                                        output_buffer = "Invalid ID".to_string();
                                     }
+                                } else {
+                                    output_buffer = "Usage: stop <id>".to_string();
                                 }
                             }
                             "complete" => {
                                 if parts.len() > 1 {
                                     if let Ok(id) = parts[1].parse::<u32>() {
-                                        if let Err(e) = commands::complete::complete_todo(todos, id)
+                                        if
+                                            let Err(e) = commands::complete::complete_todo(
+                                                todos,
+                                                id
+                                            )
                                         {
-                                            // TODO: display error in UI
+                                            output_buffer = e.to_string();
                                         }
+                                    } else {
+                                        output_buffer = "Invalid ID".to_string();
                                     }
+                                } else {
+                                    output_buffer = "Usage: complete <id>".to_string();
                                 }
                             }
-                            "quit" => return Ok(()),
+                            "quit" => {
+                                return Ok(());
+                            }
                             _ => {
-                                // TODO: display invalid command in UI
+                                output_buffer = "Invalid command".to_string();
                             }
                         }
                     }
@@ -134,6 +153,6 @@ fn get_todos() -> Vec<Todo> {
     vec![
         Todo::new(1, "Write a blog post".to_string()),
         Todo::new(2, "Learn Rust".to_string()),
-        Todo::new(3, "Go for a run".to_string()),
+        Todo::new(3, "Go for a run".to_string())
     ]
 }
