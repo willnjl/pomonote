@@ -59,8 +59,13 @@ fn run_app<B: Backend>(
                             "add" => {
                                 if parts.len() > 1 && !parts[1].is_empty() {
                                     let description = parts[1].to_string();
-                                    if let Err(e) = commands::add::add_todo(todos, description) {
-                                        output_buffer = e.to_string();
+                                    match commands::add::add_todo(todos, description) {
+                                        Ok(msg) => {
+                                            output_buffer = msg;
+                                        }
+                                        Err(e) => {
+                                            output_buffer = e;
+                                        }
                                     }
                                 } else {
                                     output_buffer = "Usage: add <description>".to_string();
@@ -69,8 +74,13 @@ fn run_app<B: Backend>(
                             "remove" | "rm" => {
                                 if parts.len() > 1 {
                                     if let Ok(id) = parts[1].parse::<u32>() {
-                                        if let Err(e) = commands::remove::remove_todo(todos, id) {
-                                            output_buffer = e.to_string();
+                                        match commands::remove::remove_todo(todos, id) {
+                                            Ok(msg) => {
+                                                output_buffer = msg;
+                                            }
+                                            Err(e) => {
+                                                output_buffer = e;
+                                            }
                                         }
                                     } else {
                                         output_buffer = "Invalid ID".to_string();
@@ -82,8 +92,13 @@ fn run_app<B: Backend>(
                             "start" => {
                                 if parts.len() > 1 {
                                     if let Ok(id) = parts[1].parse::<u32>() {
-                                        if let Err(e) = commands::start::start_todo(todos, id) {
-                                            output_buffer = e.to_string();
+                                        match commands::start::start_todo(todos, id) {
+                                            Ok(msg) => {
+                                                output_buffer = msg;
+                                            }
+                                            Err(e) => {
+                                                output_buffer = e;
+                                            }
                                         }
                                     } else {
                                         output_buffer = "Invalid ID".to_string();
@@ -95,8 +110,13 @@ fn run_app<B: Backend>(
                             "stop" => {
                                 if parts.len() > 1 {
                                     if let Ok(id) = parts[1].parse::<u32>() {
-                                        if let Err(e) = commands::stop::stop_todo(todos, id) {
-                                            output_buffer = e.to_string();
+                                        match commands::stop::stop_todo(todos, id) {
+                                            Ok(msg) => {
+                                                output_buffer = msg;
+                                            }
+                                            Err(e) => {
+                                                output_buffer = e;
+                                            }
                                         }
                                     } else {
                                         output_buffer = "Invalid ID".to_string();
@@ -108,13 +128,13 @@ fn run_app<B: Backend>(
                             "complete" => {
                                 if parts.len() > 1 {
                                     if let Ok(id) = parts[1].parse::<u32>() {
-                                        if
-                                            let Err(e) = commands::complete::complete_todo(
-                                                todos,
-                                                id
-                                            )
-                                        {
-                                            output_buffer = e.to_string();
+                                        match commands::complete::complete_todo(todos, id) {
+                                            Ok(msg) => {
+                                                output_buffer = msg;
+                                            }
+                                            Err(e) => {
+                                                output_buffer = e;
+                                            }
                                         }
                                     } else {
                                         output_buffer = "Invalid ID".to_string();

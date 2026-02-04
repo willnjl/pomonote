@@ -1,23 +1,22 @@
-use crate::models::todo::{Todo, TodoStatus};
+use crate::models::todo::{ Todo, TodoStatus };
 use crate::models::timer::Timer;
 
 /// Start a todo task (mark as in progress) and start a 25-minute timer
-pub fn start_todo(todos: &mut Vec<Todo>, id: u32) -> Result<(), Box<dyn std::error::Error>> {
+pub fn start_todo(todos: &mut Vec<Todo>, id: u32) -> Result<String, String> {
     if let Some(todo) = todos.iter_mut().find(|t| t.id == id) {
         todo.status = TodoStatus::InProgress;
-        
+
         // Create and start a new timer
         let mut timer = Timer::new();
         timer.start();
-        
-        println!("✅ Todo {} started successfully!", id);
-        println!("⏱️  Timer started: {}", timer.output());
-        println!("   Focus for 25 minutes!");
-        
+
+        let output = format!("✅ Todo {} started successfully!\n", id);
+        let output = format!("{}⏱️  Timer started: {}\n", output, timer.output());
+        let output = format!("{}   Focus for 25 minutes!", output);
+
         todo.timer = Some(timer);
+        Ok(output)
     } else {
-        println!("❌ Todo with ID {} not found.", id);
+        Err(format!("❌ Todo with ID {} not found.", id))
     }
-    
-    Ok(())
 }
