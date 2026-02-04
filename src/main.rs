@@ -20,17 +20,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut todos = get_todos();
     let mut input_buffer = String::new();
 
+    // Initial display
+    print!("\x1B[2J\x1B[1;1H");
+    println!("Welcome to Pomonote - Your CLI Pomodoro Todo App!");
+    println!("Commands: add <desc> | start <id> | stop <id> | complete <id> | remove <id> | list | quit");
+    println!("{}", "=".repeat(70));
+    display_todos(&todos);
+
     loop {
-        // Clear screen and display todos
-        print!("\x1B[2J\x1B[1;1H");
-        println!("Welcome to Pomonote - Your CLI Pomodoro Todo App!");
-        println!("Commands: add <desc> | start <id> | stop <id> | complete <id> | remove <id> | list | quit");
-        println!("{}", "=".repeat(70));
-        display_todos(&todos);
+        // Only redraw if a timer is active
+        let needs_redraw = todos.iter().any(|t| matches!(t.status, TodoStatus::InProgress));
 
         // Show prompt with current input
-        print!("\n> {}", input_buffer);
-        io::stdout().flush()?;
+        if needs_redraw {
+            // Clear screen and display todos
+            print!("\x1B[2J\x1B[1;1H");
+            println!("Welcome to Pomonote - Your CLI Pomodoro Todo App!");
+            println!("Commands: add <desc> | start <id> | stop <id> | complete <id> | remove <id> | list | quit");
+            println!("{}", "=".repeat(70));
+            display_todos(&todos);
+            print!("\n> {}", input_buffer);
+            io::stdout().flush()?;
+        }
 
         // Poll for input with 1 second timeout
         if event::poll(Duration::from_secs(1))? {
@@ -51,10 +62,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let parts: Vec<&str> = input.splitn(2, ' ').collect();
                             let command = parts[0].to_lowercase();
 
+                            let mut command_processed = true;
                             match command.as_str() {
                                 "add" => {
                                     if parts.len() < 2 || parts[1].is_empty() {
                                         println!("❌ Usage: add <description>");
+                                        command_processed = false;
                                     } else {
                                         let description = parts[1].to_string();
                                         commands::add::add_todo(&mut todos, description)?;
@@ -63,40 +76,56 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 "remove" | "rm" => {
                                     if parts.len() < 2 {
                                         println!("❌ Usage: remove <id>");
+                                        command_processed = false;
                                     } else {
                                         match parts[1].parse::<u32>() {
                                             Ok(id) => commands::remove::remove_todo(&mut todos, id)?,
-                                            Err(_) => println!("❌ Invalid ID. Please provide a number."),
+                                            Err(_) => {
+                                                println!("❌ Invalid ID. Please provide a number.");
+                                                command_processed = false;
+                                            }
                                         }
                                     }
                                 }
                                 "start" => {
                                     if parts.len() < 2 {
                                         println!("❌ Usage: start <id>");
+                                        command_processed = false;
                                     } else {
                                         match parts[1].parse::<u32>() {
                                             Ok(id) => commands::start::start_todo(&mut todos, id)?,
-                                            Err(_) => println!("❌ Invalid ID. Please provide a number."),
+                                            Err(_) => {
+                                                println!("❌ Invalid ID. Please provide a number.");
+                                                command_processed = false;
+                                            }
                                         }
                                     }
                                 }
                                 "stop" => {
                                     if parts.len() < 2 {
                                         println!("❌ Usage: stop <id>");
+                                        command_processed = false;
                                     } else {
                                         match parts[1].parse::<u32>() {
                                             Ok(id) => commands::stop::stop_todo(&mut todos, id)?,
-                                            Err(_) => println!("❌ Invalid ID. Please provide a number."),
+                                            Err(_) => {
+                                                println!("❌ Invalid ID. Please provide a number.");
+                                                command_processed = false;
+                                            }
                                         }
                                     }
                                 }
                                 "complete" | "done" => {
                                     if parts.len() < 2 {
                                         println!("❌ Usage: complete <id>");
+                                        command_processed = false;
                                     } else {
                                         match parts[1].parse::<u32>() {
                                             Ok(id) => commands::complete::complete_todo(&mut todos, id)?,
-                                            Err(_) => println!("❌ Invalid ID. Please provide a number."),
+                                            Err(_) => {
+                                                println!("❌ Invalid ID. Please provide a number.");
+                                                command_processed = false;
+                                            }
                                         }
                                     }
                                 }
@@ -116,13 +145,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     println!("  remove <id>        - Remove a todo by ID");
                                     println!("  list               - Show all todos");
                                     println!("  quit               - Exit the app");
+                                    command_processed = false;
                                 }
                                 _ => {
                                     println!("❌ Unknown command: '{}'. Type 'help' for available commands.", command);
+                                    command_processed = false;
                                 }
                             }
                             
-                            thread::sleep(Duration::from_millis(1000)); // Brief pause to show message
+                            if command_processed {
+                                // Redraw after a command is processed
+                                print!("\x1B[2J\x1B[1;1H");
+                                println!("Welcome to Pomonote - Your CLI Pomodoro Todo App!");
+                                println!("Commands: add <desc> | start <id> | stop <id> | complete <id> | remove <id> | list | quit");
+                                println!("{}", "=".repeat(70));
+                                display_todos(&todos);
+                            } else {
+                                thread::sleep(Duration::from_millis(1000)); // Brief pause to show message
+                            }
                         }
                         
                         input_buffer.clear();
@@ -139,8 +179,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     _ => {}
                 }
             }
+        } else {
+            // If no input, and timers are active, update display
+            if needs_redraw {
+                // This part is tricky without more granular control.
+                // For now, the full redraw inside the loop handles it.
+            }
         }
-        // If no input within 1 second, loop continues and refreshes display
     }
 }
 
@@ -150,7 +195,7 @@ fn get_todos() -> Vec<Todo> {
         Todo {
             id: 1,
             description: "Complete Rust CLI project".to_string(),
-            status: TodoStatus::InProgress,
+            status: TodoStatus::Pending,
             timer: None,
         },
         Todo {
