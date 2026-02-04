@@ -1,0 +1,13 @@
+[package]
+name = "pomonote"
+version = "0.1.0"
+edition = "2021"
+
+[package.metadata.cargo_watch]
+ignore = [
+  "target/*",
+  "Cargo.lock",
+]
+
+[dependencies]
+clap = { version = "4.5.57", features = ["derive"] }
