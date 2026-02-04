@@ -5,8 +5,6 @@ use ratatui::{
     Frame,
 };
 
-use super::table::table_str;
-
 use crate::models::todo::{ Todo, TodoStatus };
 
 pub fn ui(f: &mut Frame, todos: &[Todo], input_buffer: &str, output_buffer: &str) {
@@ -21,8 +19,39 @@ pub fn ui(f: &mut Frame, todos: &[Todo], input_buffer: &str, output_buffer: &str
         )
         .split(f.size());
 
-    let table_str = table_str(todos);
-    let table_widget = Paragraph::new(table_str).block(Block::default().borders(Borders::ALL));
+    let header_cells = ["ID", "Description", "Status", "Timer"]
+        .iter()
+        .map(|h| Cell::from(*h).style(Style::default().fg(Color::Red)));
+    let header = Row::new(header_cells).height(1).bottom_margin(1);
+
+    let rows = todos.iter().map(|item| {
+        let height = item.description
+            .chars()
+            .filter(|c| *c == '\n')
+            .count()
+            .max(1) as u16;
+        let status_style = match item.status {
+            TodoStatus::Pending => Style::default().fg(Color::Yellow),
+            TodoStatus::InProgress => Style::default().fg(Color::Cyan),
+            TodoStatus::Completed => Style::default().fg(Color::Green),
+        };
+        let cells = vec![
+            Cell::from(item.id.to_string()),
+            Cell::from(item.description.clone()),
+            Cell::from(item.status.to_string()).style(status_style),
+            Cell::from(item.timer.as_ref().map_or("--:--".to_string(), |t| t.output()))
+        ];
+        Row::new(cells).height(height)
+    });
+
+    let table = Table::new(rows, [
+        Constraint::Percentage(10),
+        Constraint::Percentage(50),
+        Constraint::Percentage(20),
+        Constraint::Percentage(20),
+    ])
+        .header(header)
+        .block(Block::default().borders(Borders::ALL).title("Todos"));
 
     let output = Paragraph::new(output_buffer)
         .style(Style::default().fg(Color::Yellow))
@@ -32,7 +61,7 @@ pub fn ui(f: &mut Frame, todos: &[Todo], input_buffer: &str, output_buffer: &str
         .style(Style::default().fg(Color::LightBlue))
         .block(Block::default().borders(Borders::ALL).title("Input"));
 
-    f.render_widget(table_widget, chunks[0]);
+    f.render_widget(table, chunks[0]);
     f.render_widget(output, chunks[1]);
     f.render_widget(input, chunks[2]);
 }

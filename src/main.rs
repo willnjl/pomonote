@@ -1,7 +1,6 @@
 mod commands;
 mod display;
 mod models;
-mod table;
 
 use crossterm::{
     event::{ self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode },
