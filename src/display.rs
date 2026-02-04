@@ -16,6 +16,7 @@ pub fn display_todos(todos: &[Todo]) {
         Cell::new("ID").add_attribute(Attribute::Bold),
         Cell::new("Description").add_attribute(Attribute::Bold),
         Cell::new("Status").add_attribute(Attribute::Bold),
+        Cell::new("Timer").add_attribute(Attribute::Bold)
     ]);
 
     // Add todos
@@ -26,10 +27,17 @@ pub fn display_todos(todos: &[Todo]) {
             TodoStatus::Completed => Cell::new(&todo.status).fg(Color::Green),
         };
 
+        let timer_display = if let Some(ref timer) = todo.timer {
+            timer.output()
+        } else {
+            "--:--".to_string()
+        };
+
         table.add_row(vec![
             Cell::new(todo.id),
             Cell::new(&todo.description),
             status_cell,
+            Cell::new(timer_display)
         ]);
     }
 

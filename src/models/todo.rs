@@ -1,10 +1,13 @@
 use serde::{Deserialize, Serialize};
+use super::timer::Timer;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Todo {
     pub id: u32,
     pub description: String,
     pub status: TodoStatus,
+    #[serde(skip)]
+    pub timer: Option<Timer>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,6 +33,7 @@ impl Todo {
             id,
             description,
             status: TodoStatus::Pending,
+            timer: None,
         }
     }
 }
