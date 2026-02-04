@@ -35,7 +35,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 use std::time::Duration;
-
 fn run_app<B: Backend>(
     terminal: &mut Terminal<B>,
     todos: &mut Vec<Todo>,
@@ -44,9 +43,12 @@ fn run_app<B: Backend>(
     let mut output_buffer = String::new();
     loop {
         terminal.draw(|f| display::ui(f, todos, input_buffer, &output_buffer))?;
-        if event::poll(Duration::from_millis(500))? {
+
+        if event::poll(Duration::from_secs(1))? {
             if let Event::Key(key) = event::read()? {
                 output_buffer.clear();
+                let mut should_save = false; // Track if we need to save
+
                 match key.code {
                     KeyCode::Enter => {
                         let input = input_buffer.trim();
@@ -61,6 +63,7 @@ fn run_app<B: Backend>(
                                         match commands::add::add_todo(todos, description) {
                                             Ok(msg) => {
                                                 output_buffer = msg;
+                                                should_save = true;
                                             }
                                             Err(e) => {
                                                 output_buffer = e;
@@ -76,6 +79,7 @@ fn run_app<B: Backend>(
                                             match commands::remove::remove_todo(todos, id) {
                                                 Ok(msg) => {
                                                     output_buffer = msg;
+                                                    should_save = true;
                                                 }
                                                 Err(e) => {
                                                     output_buffer = e;
@@ -94,6 +98,7 @@ fn run_app<B: Backend>(
                                             match commands::start::start_todo(todos, id) {
                                                 Ok(msg) => {
                                                     output_buffer = msg;
+                                                    should_save = true;
                                                 }
                                                 Err(e) => {
                                                     output_buffer = e;
@@ -112,6 +117,7 @@ fn run_app<B: Backend>(
                                             match commands::stop::stop_todo(todos, id) {
                                                 Ok(msg) => {
                                                     output_buffer = msg;
+                                                    should_save = true;
                                                 }
                                                 Err(e) => {
                                                     output_buffer = e;
@@ -130,6 +136,7 @@ fn run_app<B: Backend>(
                                             match commands::complete::complete_todo(todos, id) {
                                                 Ok(msg) => {
                                                     output_buffer = msg;
+                                                    should_save = true;
                                                 }
                                                 Err(e) => {
                                                     output_buffer = e;
@@ -151,6 +158,11 @@ fn run_app<B: Backend>(
                             }
                         }
                         input_buffer.clear();
+
+                        // Save to disk if any command modified the todos
+                        if should_save {
+                            Todo::save_all(todos).ok();
+                        }
                     }
                     KeyCode::Char(c) => {
                         input_buffer.push(c);
@@ -169,10 +181,14 @@ fn run_app<B: Backend>(
 }
 
 // Placeholder for loading todos
+// fn get_todos() -> Vec<Todo> {
+//     vec![
+//         Todo::new(1, "Write a blog post".to_string()),
+//         Todo::new(2, "Learn Rust".to_string()),
+//         Todo::new(3, "Go for a run".to_string())
+//     ]
+// }
+
 fn get_todos() -> Vec<Todo> {
-    vec![
-        Todo::new(1, "Write a blog post".to_string()),
-        Todo::new(2, "Learn Rust".to_string()),
-        Todo::new(3, "Go for a run".to_string())
-    ]
+    Todo::load_all()
 }
