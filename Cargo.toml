@@ -1,7 +1,7 @@
 [package]
 name = "pomonote"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [package.metadata.cargo_watch]
 ignore = [
@@ -11,3 +11,5 @@ ignore = [
 
 [dependencies]
 clap = { version = "4.5.57", features = ["derive"] }
+comfy-table = "7.2.2"
+serde = { version = "1.0.228", features = ["derive"] }
