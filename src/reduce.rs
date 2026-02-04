@@ -12,6 +12,7 @@ pub struct AppState {
     pub input_buffer: String,
     pub output_buffer: String,
     pub should_quit: bool,
+    pub should_save: bool,
 }
 
 // All possible actions
@@ -192,6 +193,7 @@ pub fn run_app<B: Backend>(terminal: &mut Terminal<B>, initial_todos: Vec<Todo>)
         input_buffer: String::new(),
         output_buffer: String::new(),
         should_quit: false,
+        should_save: false,
     };
 
     while !state.should_quit {
@@ -214,7 +216,9 @@ pub fn run_app<B: Backend>(terminal: &mut Terminal<B>, initial_todos: Vec<Todo>)
         }
     }
 
-    Todo::save_all(&state.todos);
+    if let Err(e) = Todo::save_all(&state.todos) {
+        eprintln!("Failed to save todos: {}", e);
+    }
 
     Ok(())
 }
