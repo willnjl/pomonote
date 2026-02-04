@@ -1,29 +1,23 @@
 use std::time::{ Instant, SystemTime, UNIX_EPOCH };
 use serde::{ Deserialize, Serialize };
 
-/// Timer struct for Pomodoro sessions
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Timer {
-    /// Total duration of the timer in seconds
     duration: u64,
-    /// Start time as Unix timestamp (seconds since epoch)
     start_timestamp: Option<u64>,
-    /// Instant for accurate elapsed time calculation (not serialized)
     #[serde(skip)]
     start_instant: Option<Instant>,
 }
 
 impl Timer {
-    /// Create a new timer set to 25 minutes (1500 seconds) but not started
     pub fn new() -> Self {
         Self {
-            duration: 1500, // 25 minutes in seconds
+            duration: 1500,
             start_timestamp: None,
             start_instant: None,
         }
     }
 
-    /// Start the countdown timer
     pub fn start(&mut self) {
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
 
@@ -31,39 +25,38 @@ impl Timer {
         self.start_instant = Some(Instant::now());
     }
 
-    /// Get the remaining time in seconds
     pub fn remaining_seconds(&self) -> u64 {
-        match (self.start_timestamp, self.start_instant) {
-            // If we have both, use Instant for accuracy
-            (Some(_), Some(instant)) => {
-                let elapsed = instant.elapsed().as_secs();
-                if elapsed >= self.duration {
-                    0
+        let elapsed = match (self.start_timestamp, self.start_instant) {
+            (Some(start_ts), Some(instant)) => {
+                let instant_elapsed = instant.elapsed().as_secs();
+                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+                let timestamp_elapsed = now.saturating_sub(start_ts);
+
+                if instant_elapsed.abs_diff(timestamp_elapsed) <= 2 {
+                    instant_elapsed
                 } else {
-                    self.duration - elapsed
+                    timestamp_elapsed
                 }
             }
-            // If we only have timestamp (loaded from disk), calculate from SystemTime
             (Some(start_ts), None) => {
                 let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-                let elapsed = now.saturating_sub(start_ts);
-                if elapsed >= self.duration {
-                    0
-                } else {
-                    self.duration - elapsed
-                }
+                now.saturating_sub(start_ts)
             }
-            // Not started
-            _ => self.duration,
+            _ => {
+                return self.duration;
+            }
+        };
+        if elapsed >= self.duration {
+            0
+        } else {
+            self.duration - elapsed
         }
     }
 
-    /// Check if the timer has finished
     pub fn is_finished(&self) -> bool {
         self.remaining_seconds() == 0
     }
 
-    /// Output the timer in mm:ss format
     pub fn output(&self) -> String {
         let remaining = self.remaining_seconds();
         let minutes = remaining / 60;
@@ -71,10 +64,13 @@ impl Timer {
         format!("{:02}:{:02}", minutes, seconds)
     }
 
-    /// Restore the Instant after deserialization
     pub fn restore_instant(&mut self) {
-        if self.start_timestamp.is_some() && self.start_instant.is_none() {
-            self.start_instant = Some(Instant::now());
+        if let Some(start_ts) = self.start_timestamp {
+            if self.start_instant.is_none() {
+                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+                let elapsed = now.saturating_sub(start_ts);
+                self.start_instant = Some(Instant::now());
+            }
         }
     }
 }

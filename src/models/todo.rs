@@ -38,14 +38,12 @@ impl Todo {
         }
     }
 
-    /// Save all todos to JSON file
     pub fn save_all(todos: &Vec<Todo>) -> std::io::Result<()> {
         let json = serde_json::to_string_pretty(todos)?;
         fs::write("todos.json", json)?;
         Ok(())
     }
 
-    /// Load all todos from JSON file
     pub fn load_all() -> Vec<Todo> {
         let path = Path::new("todos.json");
 
@@ -59,7 +57,6 @@ impl Todo {
             .and_then(|data| serde_json::from_str(&data).ok())
             .unwrap_or_else(Vec::new);
 
-        // Restore Instant for timers that were loaded from disk
         for todo in &mut todos {
             if let Some(timer) = &mut todo.timer {
                 timer.restore_instant();
@@ -69,7 +66,6 @@ impl Todo {
         todos
     }
 
-    /// Get the next available ID
     pub fn next_id(todos: &Vec<Todo>) -> u32 {
         todos
             .iter()
