@@ -13,7 +13,7 @@ use crossterm::{
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Welcome to Pomonote - Your CLI Pomodoro Todo App!");
-    println!("Commands: add <description> | remove <id> | start <id> | list | quit");
+    println!("Commands: add <desc> | start <id> | stop <id> | complete <id> | remove <id> | list | quit");
     println!("{}", "=".repeat(70));
 
     // Load existing todos (placeholder - replace with actual persistence later)
@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Clear screen and display todos
         print!("\x1B[2J\x1B[1;1H");
         println!("Welcome to Pomonote - Your CLI Pomodoro Todo App!");
-        println!("Commands: add <description> | remove <id> | start <id> | list | quit");
+        println!("Commands: add <desc> | start <id> | stop <id> | complete <id> | remove <id> | list | quit");
         println!("{}", "=".repeat(70));
         display_todos(&todos);
 
@@ -80,6 +80,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         }
                                     }
                                 }
+                                "stop" => {
+                                    if parts.len() < 2 {
+                                        println!("❌ Usage: stop <id>");
+                                    } else {
+                                        match parts[1].parse::<u32>() {
+                                            Ok(id) => commands::stop::stop_todo(&mut todos, id)?,
+                                            Err(_) => println!("❌ Invalid ID. Please provide a number."),
+                                        }
+                                    }
+                                }
+                                "complete" | "done" => {
+                                    if parts.len() < 2 {
+                                        println!("❌ Usage: complete <id>");
+                                    } else {
+                                        match parts[1].parse::<u32>() {
+                                            Ok(id) => commands::complete::complete_todo(&mut todos, id)?,
+                                            Err(_) => println!("❌ Invalid ID. Please provide a number."),
+                                        }
+                                    }
+                                }
                                 "list" | "ls" => {
                                     // Just refresh display
                                 }
@@ -90,8 +110,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 "help" | "h" => {
                                     println!("\nAvailable commands:");
                                     println!("  add <description>  - Add a new todo");
-                                    println!("  remove <id>        - Remove a todo by ID");
                                     println!("  start <id>         - Start a todo (mark as in progress)");
+                                    println!("  stop <id>          - Stop a todo (remove timer, set to pending)");
+                                    println!("  complete <id>      - Complete a todo (stop timer, mark done)");
+                                    println!("  remove <id>        - Remove a todo by ID");
                                     println!("  list               - Show all todos");
                                     println!("  quit               - Exit the app");
                                 }
