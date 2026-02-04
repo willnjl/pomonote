@@ -1,12 +1,13 @@
-mod commands;
 mod display;
 mod models;
+mod reduce;
+
 use crossterm::{
-    event::{ self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode },
+    event::{ DisableMouseCapture, EnableMouseCapture },
     execute,
     terminal::{ disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen },
 };
-use models::todo::{ Todo, TodoStatus };
+use models::todo::Todo;
 use ratatui::{ backend::{ Backend, CrosstermBackend }, Terminal };
 use std::{ error::Error, io, panic };
 
@@ -21,9 +22,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut terminal = Terminal::new(backend)?;
 
     // create app and run it
-    let mut todos = get_todos();
-    let mut input_buffer = String::new();
-    let res = run_app(&mut terminal, &mut todos, &mut input_buffer);
+    let todos = get_todos();
+    let res = reduce::run_app(&mut terminal, todos);
 
     // restore terminal - use result to ensure proper cleanup
     let cleanup_result = cleanup_terminal(terminal);
@@ -65,55 +65,6 @@ fn cleanup_terminal<B: Backend + io::Write>(
     terminal.show_cursor()?;
 
     Ok(())
-}
-
-fn run_app<B: Backend>(
-    terminal: &mut Terminal<B>,
-    todos: &mut Vec<Todo>,
-    input_buffer: &mut String
-) -> io::Result<()> {
-    let mut output_buffer = String::new();
-    loop {
-        terminal.draw(|f| display::ui(f, todos, input_buffer, &output_buffer))?;
-
-        if event::poll(std::time::Duration::from_millis(100))? {
-            if let Event::Key(key) = event::read()? {
-                output_buffer.clear();
-                match key.code {
-                    KeyCode::Esc => {
-                        // Exit immediately
-                        return Ok(());
-                    }
-                    KeyCode::Enter => {
-                        let input = input_buffer.trim();
-                        if !input.is_empty() {
-                            let parts: Vec<&str> = input.splitn(2, ' ').collect();
-                            let command = parts[0].to_lowercase();
-
-                            match command.as_str() {
-                                "quit" | "exit" | "q" => {
-                                    // Exit immediately
-                                    return Ok(());
-                                }
-                                // ... rest of your commands
-                                _ => {
-                                    output_buffer = "Invalid command".to_string();
-                                }
-                            }
-                        }
-                        input_buffer.clear();
-                    }
-                    KeyCode::Char(c) => {
-                        input_buffer.push(c);
-                    }
-                    KeyCode::Backspace => {
-                        input_buffer.pop();
-                    }
-                    _ => {}
-                }
-            }
-        }
-    }
 }
 
 fn get_todos() -> Vec<Todo> {
