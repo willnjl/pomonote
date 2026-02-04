@@ -1,45 +1,27 @@
-use comfy_table::{Table, presets::UTF8_FULL, Cell, Color, Attribute};
-use crate::models::todo::{Todo, TodoStatus};
+use ratatui::{
+    layout::{ Constraint, Direction, Layout },
+    style::{ Color, Style },
+    widgets::{ Block, Borders, Cell, Paragraph, Row, Table },
+    Frame,
+};
 
-/// Display todos in a formatted table
-pub fn display_todos(todos: &[Todo]) {
-    if todos.is_empty() {
-        println!("\nNo todos yet! Add one with: pomonote add \"Your task description\"");
-        return;
-    }
+use super::table::table_str;
 
-    let mut table = Table::new();
-    table.load_preset(UTF8_FULL);
-    
-    // Add header
-    table.set_header(vec![
-        Cell::new("ID").add_attribute(Attribute::Bold),
-        Cell::new("Description").add_attribute(Attribute::Bold),
-        Cell::new("Status").add_attribute(Attribute::Bold),
-        Cell::new("Timer").add_attribute(Attribute::Bold)
-    ]);
+use crate::models::todo::{ Todo, TodoStatus };
 
-    // Add todos
-    for todo in todos {
-        let status_cell = match todo.status {
-            TodoStatus::Pending => Cell::new(&todo.status).fg(Color::Yellow),
-            TodoStatus::InProgress => Cell::new(&todo.status).fg(Color::Cyan),
-            TodoStatus::Completed => Cell::new(&todo.status).fg(Color::Green),
-        };
+pub fn ui(f: &mut Frame, todos: &[Todo], input_buffer: &str) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(80), Constraint::Percentage(10)].as_ref())
+        .split(f.size());
 
-        let timer_display = if let Some(ref timer) = todo.timer {
-            timer.output()
-        } else {
-            "--:--".to_string()
-        };
+    let table_str = table_str(todos);
+    let table_widget = Paragraph::new(table_str).block(Block::default().borders(Borders::ALL));
 
-        table.add_row(vec![
-            Cell::new(todo.id),
-            Cell::new(&todo.description),
-            status_cell,
-            Cell::new(timer_display)
-        ]);
-    }
+    f.render_widget(table_widget, chunks[0]);
 
-    println!("\n{}", table);
+    let input = Paragraph::new(input_buffer)
+        .style(Style::default().fg(Color::Yellow))
+        .block(Block::default().borders(Borders::ALL).title("Input"));
+    f.render_widget(input, chunks[1]);
 }

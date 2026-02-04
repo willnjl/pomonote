@@ -1,214 +1,139 @@
 mod commands;
 mod display;
 mod models;
+mod table;
 
-use display::display_todos;
-use models::todo::{Todo, TodoStatus};
-use std::io::{self, Write};
-use std::thread;
-use std::time::Duration;
 use crossterm::{
-    event::{self, Event, KeyCode, KeyEvent, KeyEventKind},
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+use models::todo::{Todo, TodoStatus};
+use ratatui::{
+    backend::{Backend, CrosstermBackend},
+    Terminal,
+};
+use std::{error::Error, io};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Welcome to Pomonote - Your CLI Pomodoro Todo App!");
-    println!("Commands: add <desc> | start <id> | stop <id> | complete <id> | remove <id> | list | quit");
-    println!("{}", "=".repeat(70));
+fn main() -> Result<(), Box<dyn Error>> {
+    // setup terminal
+    enable_raw_mode()?;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
 
-    // Load existing todos (placeholder - replace with actual persistence later)
+    // create app and run it
     let mut todos = get_todos();
     let mut input_buffer = String::new();
+    let res = run_app(&mut terminal, &mut todos, &mut input_buffer);
 
-    // Initial display
-    print!("\x1B[2J\x1B[1;1H");
-    println!("Welcome to Pomonote - Your CLI Pomodoro Todo App!");
-    println!("Commands: add <desc> | start <id> | stop <id> | complete <id> | remove <id> | list | quit");
-    println!("{}", "=".repeat(70));
-    display_todos(&todos);
+    // restore terminal
+    disable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    )?;
+    terminal.show_cursor()?;
 
+    if let Err(err) = res {
+        println!("{err:?}");
+    }
+
+    Ok(())
+}
+
+fn run_app<B: Backend>(
+    terminal: &mut Terminal<B>,
+    todos: &mut Vec<Todo>,
+    input_buffer: &mut String,
+) -> io::Result<()> {
     loop {
-        // Only redraw if a timer is active
-        let needs_redraw = todos.iter().any(|t| matches!(t.status, TodoStatus::InProgress));
+        terminal.draw(|f| display::ui(f, todos, input_buffer))?;
 
-        // Show prompt with current input
-        if needs_redraw {
-            // Clear screen and display todos
-            print!("\x1B[2J\x1B[1;1H");
-            println!("Welcome to Pomonote - Your CLI Pomodoro Todo App!");
-            println!("Commands: add <desc> | start <id> | stop <id> | complete <id> | remove <id> | list | quit");
-            println!("{}", "=".repeat(70));
-            display_todos(&todos);
-            print!("\n> {}", input_buffer);
-            io::stdout().flush()?;
-        }
+        if let Event::Key(key) = event::read()? {
+            match key.code {
+                KeyCode::Enter => {
+                    let input = input_buffer.trim();
+                    if !input.is_empty() {
+                        let parts: Vec<&str> = input.splitn(2, ' ').collect();
+                        let command = parts[0].to_lowercase();
 
-        // Poll for input with 1 second timeout
-        if event::poll(Duration::from_secs(1))? {
-            if let Event::Key(KeyEvent {
-                code,
-                kind: KeyEventKind::Press,
-                ..
-            }) = event::read()?
-            {
-                match code {
-                    KeyCode::Enter => {
-                        println!(); // Move to new line after Enter
-                        
-                        // Process command
-                        let input = input_buffer.trim();
-                        
-                        if !input.is_empty() {
-                            let parts: Vec<&str> = input.splitn(2, ' ').collect();
-                            let command = parts[0].to_lowercase();
-
-                            let mut command_processed = true;
-                            match command.as_str() {
-                                "add" => {
-                                    if parts.len() < 2 || parts[1].is_empty() {
-                                        println!("❌ Usage: add <description>");
-                                        command_processed = false;
-                                    } else {
-                                        let description = parts[1].to_string();
-                                        commands::add::add_todo(&mut todos, description)?;
+                        match command.as_str() {
+                            "add" => {
+                                if parts.len() > 1 && !parts[1].is_empty() {
+                                    let description = parts[1].to_string();
+                                    if let Err(e) = commands::add::add_todo(todos, description) {
+                                        // TODO: display error in UI
                                     }
-                                }
-                                "remove" | "rm" => {
-                                    if parts.len() < 2 {
-                                        println!("❌ Usage: remove <id>");
-                                        command_processed = false;
-                                    } else {
-                                        match parts[1].parse::<u32>() {
-                                            Ok(id) => commands::remove::remove_todo(&mut todos, id)?,
-                                            Err(_) => {
-                                                println!("❌ Invalid ID. Please provide a number.");
-                                                command_processed = false;
-                                            }
-                                        }
-                                    }
-                                }
-                                "start" => {
-                                    if parts.len() < 2 {
-                                        println!("❌ Usage: start <id>");
-                                        command_processed = false;
-                                    } else {
-                                        match parts[1].parse::<u32>() {
-                                            Ok(id) => commands::start::start_todo(&mut todos, id)?,
-                                            Err(_) => {
-                                                println!("❌ Invalid ID. Please provide a number.");
-                                                command_processed = false;
-                                            }
-                                        }
-                                    }
-                                }
-                                "stop" => {
-                                    if parts.len() < 2 {
-                                        println!("❌ Usage: stop <id>");
-                                        command_processed = false;
-                                    } else {
-                                        match parts[1].parse::<u32>() {
-                                            Ok(id) => commands::stop::stop_todo(&mut todos, id)?,
-                                            Err(_) => {
-                                                println!("❌ Invalid ID. Please provide a number.");
-                                                command_processed = false;
-                                            }
-                                        }
-                                    }
-                                }
-                                "complete" | "done" => {
-                                    if parts.len() < 2 {
-                                        println!("❌ Usage: complete <id>");
-                                        command_processed = false;
-                                    } else {
-                                        match parts[1].parse::<u32>() {
-                                            Ok(id) => commands::complete::complete_todo(&mut todos, id)?,
-                                            Err(_) => {
-                                                println!("❌ Invalid ID. Please provide a number.");
-                                                command_processed = false;
-                                            }
-                                        }
-                                    }
-                                }
-                                "list" | "ls" => {
-                                    // Just refresh display
-                                }
-                                "quit" | "exit" | "q" => {
-                                    println!("\n👋 Goodbye! Stay productive!");
-                                    return Ok(());
-                                }
-                                "help" | "h" => {
-                                    println!("\nAvailable commands:");
-                                    println!("  add <description>  - Add a new todo");
-                                    println!("  start <id>         - Start a todo (mark as in progress)");
-                                    println!("  stop <id>          - Stop a todo (remove timer, set to pending)");
-                                    println!("  complete <id>      - Complete a todo (stop timer, mark done)");
-                                    println!("  remove <id>        - Remove a todo by ID");
-                                    println!("  list               - Show all todos");
-                                    println!("  quit               - Exit the app");
-                                    command_processed = false;
-                                }
-                                _ => {
-                                    println!("❌ Unknown command: '{}'. Type 'help' for available commands.", command);
-                                    command_processed = false;
                                 }
                             }
-                            
-                            if command_processed {
-                                // Redraw after a command is processed
-                                print!("\x1B[2J\x1B[1;1H");
-                                println!("Welcome to Pomonote - Your CLI Pomodoro Todo App!");
-                                println!("Commands: add <desc> | start <id> | stop <id> | complete <id> | remove <id> | list | quit");
-                                println!("{}", "=".repeat(70));
-                                display_todos(&todos);
-                            } else {
-                                thread::sleep(Duration::from_millis(1000)); // Brief pause to show message
+                            "remove" | "rm" => {
+                                if parts.len() > 1 {
+                                    if let Ok(id) = parts[1].parse::<u32>() {
+                                        if let Err(e) = commands::remove::remove_todo(todos, id) {
+                                            // TODO: display error in UI
+                                        }
+                                    }
+                                }
+                            }
+                            "start" => {
+                                if parts.len() > 1 {
+                                    if let Ok(id) = parts[1].parse::<u32>() {
+                                        if let Err(e) = commands::start::start_todo(todos, id) {
+                                            // TODO: display error in UI
+                                        }
+                                    }
+                                }
+                            }
+                            "stop" => {
+                                if parts.len() > 1 {
+                                    if let Ok(id) = parts[1].parse::<u32>() {
+                                        if let Err(e) = commands::stop::stop_todo(todos, id) {
+                                            // TODO: display error in UI
+                                        }
+                                    }
+                                }
+                            }
+                            "complete" => {
+                                if parts.len() > 1 {
+                                    if let Ok(id) = parts[1].parse::<u32>() {
+                                        if let Err(e) = commands::complete::complete_todo(todos, id)
+                                        {
+                                            // TODO: display error in UI
+                                        }
+                                    }
+                                }
+                            }
+                            "quit" => return Ok(()),
+                            _ => {
+                                // TODO: display invalid command in UI
                             }
                         }
-                        
-                        input_buffer.clear();
                     }
-                    KeyCode::Char(c) => {
-                        input_buffer.push(c);
-                    }
-                    KeyCode::Backspace => {
-                        input_buffer.pop();
-                    }
-                    KeyCode::Esc => {
-                        input_buffer.clear();
-                    }
-                    _ => {}
+                    input_buffer.clear();
                 }
-            }
-        } else {
-            // If no input, and timers are active, update display
-            if needs_redraw {
-                // This part is tricky without more granular control.
-                // For now, the full redraw inside the loop handles it.
+                KeyCode::Char(c) => {
+                    input_buffer.push(c);
+                }
+                KeyCode::Backspace => {
+                    input_buffer.pop();
+                }
+                KeyCode::Esc => {
+                    return Ok(());
+                }
+                _ => {}
             }
         }
     }
 }
 
-// Placeholder function to get todos - replace with actual persistence later
+// Placeholder for loading todos
 fn get_todos() -> Vec<Todo> {
     vec![
-        Todo {
-            id: 1,
-            description: "Complete Rust CLI project".to_string(),
-            status: TodoStatus::Pending,
-            timer: None,
-        },
-        Todo {
-            id: 2,
-            description: "Add data persistence".to_string(),
-            status: TodoStatus::Pending,
-            timer: None,
-        },
-        Todo {
-            id: 3,
-            description: "Write tests".to_string(),
-            status: TodoStatus::Pending,
-            timer: None,
-        },
+        Todo::new(1, "Write a blog post".to_string()),
+        Todo::new(2, "Learn Rust".to_string()),
+        Todo::new(3, "Go for a run".to_string()),
     ]
 }
