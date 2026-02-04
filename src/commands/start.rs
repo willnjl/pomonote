@@ -10,7 +10,7 @@ pub fn start_todo(todos: &mut Vec<Todo>, id: u32) -> Result<String, String> {
         let mut timer = Timer::new();
         timer.start();
 
-        let output = format!("{}⏱️  Timer started: {}\n", output, timer.output());
+        let output = format!("⏱️  Timer started: {}\n", timer.output());
         let output = format!("{}🍅  Focus for 25 minutes!", output);
 
         todo.timer = Some(timer);
