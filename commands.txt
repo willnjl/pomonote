@@ -2,6 +2,9 @@
 
 cargo watch -x run
 cargo run
+cargo test -- --no-capture
+cargo watch -x "test" -x "run"
+cargo watch -x "test"
 
 # Pomonote
 
