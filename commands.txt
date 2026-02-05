@@ -1,2 +1,12 @@
-cargo watch -x run
+# Cargo
 
+cargo watch -x run
+cargo run
+
+# Pomonote
+
+"quit" | "exit" | "q"
+"remove" | "rm"
+"complete" | "done"
+"start"
+"stop"
