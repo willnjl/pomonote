@@ -1,3 +1,4 @@
+mod app;
 mod display;
 mod models;
 mod reduce;
@@ -13,10 +14,10 @@ use ratatui::{ backend::{ CrosstermBackend }, Terminal };
 use std::{ error::Error, io };
 use utils::{ setup_panic_handler, cleanup_terminal };
 fn main() -> Result<(), Box<dyn Error>> {
-    run_app()
+    start_app()
 }
 
-fn run_app() -> Result<(), Box<dyn Error>> {
+fn start_app() -> Result<(), Box<dyn Error>> {
     setup_panic_handler();
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -25,7 +26,7 @@ fn run_app() -> Result<(), Box<dyn Error>> {
     let mut terminal = Terminal::new(backend)?;
 
     let todos = get_todos();
-    let res = reduce::run_app(&mut terminal, todos);
+    let res = app::run_app(&mut terminal, todos);
     let cleanup_result = cleanup_terminal(terminal);
 
     if let Err(err) = res {
