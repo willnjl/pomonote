@@ -115,4 +115,10 @@ mod tests {
         let action = handle_key_event(KeyCode::Esc, "");
         assert!(matches!(action, Action::Quit));
     }
+
+    #[test]
+    fn test_remove_multiple() {
+        let action = handle_key_event(KeyCode::Enter, "rm 1 2");
+        assert!(matches!(action, Action::RemoveTodos(v) if v == vec![1, 2]));
+    }
 }
