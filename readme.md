@@ -15,6 +15,7 @@ _(A placeholder for a screenshot of Pomonote in action)_
 - **Pomodoro Timer**: A 25-minute timer to help you stay focused on your tasks.
 - **Simple Task Management**: Add, remove, start, stop, and complete tasks with simple commands.
 - **Lightweight and Fast**: Built with Rust for performance.
+- **Persistent Storage**: Your tasks are saved in a lightweight JSON file, so you don't lose them.
 
 ## Installation
 
