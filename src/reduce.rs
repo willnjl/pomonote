@@ -51,8 +51,7 @@ pub fn reduce(state: &mut AppState, action: Action) -> () {
 }
 
 pub fn parse_command(input: &str) -> OneOrMany<Action> {
-    // Split input into command, integer arguments, and string arguments
-    let mut tokens = input.split_whitespace();
+    let tokens = input.split_whitespace();
     let mut int_args = Vec::new();
     let mut str_args = Vec::new();
 
