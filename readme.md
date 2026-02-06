@@ -6,7 +6,7 @@
 
 The goal of Pomonote is to provide a simple yet effective way to manage your to-do list without leaving your terminal, keeping you in the zone.
 
-![Pomonote Screenshot](https://github.com/willnjl/pomonote/blob/main/pomonote.png?raw=true)
+![Pomonote Screenshot](https://raw.githubusercontent.com/willnjl/pomonote/refs/heads/main/pomonote.png)
 _(A placeholder for a screenshot of Pomonote in action)_
 
 ## Features
