@@ -1,6 +1,7 @@
 mod app;
 mod display;
 mod models;
+mod commands;
 mod reduce;
 mod utils;
 

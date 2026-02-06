@@ -1,124 +1,137 @@
-#[cfg(test)]
-mod tests {
-    use crossterm::event::KeyCode;
-    use pomonote::models::todo::{ Todo, TodoStatus };
-    use pomonote::reduce::{ reduce, Action, AppState };
-    use pomonote::app::{ handle_key_event };
+use pomonote::reduce::{ reduce, parse_command, Action, AppState };
+use pomonote::models::todo::{ Todo, TodoStatus };
+use pomonote::utils::OneOrMany;
 
-    fn initial_state() -> AppState {
-        AppState {
-            todos: vec![Todo::new(1, "First todo".to_string())],
-            input_buffer: String::new(),
-            output_buffer: String::new(),
-            should_quit: false,
-        }
+fn get_initial_state() -> AppState {
+    AppState {
+        todos: vec![
+            Todo::new(1, "todo 1".to_string()),
+            Todo::new(2, "todo 2".to_string()),
+            Todo::new(3, "todo 3".to_string())
+        ],
+        input_buffer: String::new(),
+        output_buffer: String::new(),
+        should_quit: false,
     }
+}
 
-    #[test]
-    fn test_add_todo() {
-        let state = initial_state();
-        let action = Action::AddTodo("New todo".to_string());
-        let new_state = reduce(state, action);
-        assert_eq!(new_state.todos.len(), 2);
-        assert_eq!(new_state.todos[1].description, "New todo");
-        assert_eq!(new_state.todos[1].id, 2);
+#[test]
+fn test_reduce_quit() {
+    let mut state = get_initial_state();
+    reduce(&mut state, Action::Quit);
+    assert!(state.should_quit);
+}
+
+#[test]
+fn test_reduce_add_todo() {
+    let mut state = get_initial_state();
+    let todo_text = "new todo";
+    reduce(&mut state, Action::AddTodo(todo_text.to_string()));
+    assert_eq!(state.todos.len(), 4);
+    assert_eq!(state.todos.last().unwrap().description, todo_text);
+}
+
+#[test]
+fn test_reduce_remove_todo() {
+    let mut state = get_initial_state();
+    reduce(&mut state, Action::RemoveTodo(2));
+    assert_eq!(state.todos.len(), 2);
+    assert!(!state.todos.iter().any(|t| t.id == 2));
+}
+
+#[test]
+fn test_reduce_complete_todo() {
+    let mut state = get_initial_state();
+    reduce(&mut state, Action::CompleteTodo(1));
+    assert_eq!(state.todos[0].status, TodoStatus::Completed);
+}
+
+#[test]
+fn test_reduce_start_todo() {
+    let mut state = get_initial_state();
+    reduce(&mut state, Action::StartTodo(1));
+    assert_eq!(state.todos[0].status, TodoStatus::InProgress);
+}
+
+#[test]
+fn test_reduce_stop_todo() {
+    let mut state = get_initial_state();
+    state.todos[0].status = TodoStatus::InProgress;
+    reduce(&mut state, Action::StopTodo(1));
+    assert_eq!(state.todos[0].status, TodoStatus::Pending);
+}
+
+#[test]
+fn test_reduce_toggle_status() {
+    let mut state = get_initial_state();
+    reduce(&mut state, Action::ToggleStatus(1));
+    assert_eq!(state.todos[0].status, TodoStatus::InProgress);
+    reduce(&mut state, Action::ToggleStatus(1));
+    assert_eq!(state.todos[0].status, TodoStatus::Completed);
+}
+
+#[test]
+fn test_reduce_update_input() {
+    let mut state = get_initial_state();
+    let input = "hello";
+    reduce(&mut state, Action::UpdateInput(input.to_string()));
+    assert_eq!(state.input_buffer, input);
+}
+
+#[test]
+fn test_reduce_clear_input() {
+    let mut state = get_initial_state();
+    state.input_buffer = "some text".to_string();
+    reduce(&mut state, Action::ClearInput);
+    assert!(state.input_buffer.is_empty());
+}
+
+#[test]
+fn test_reduce_set_output() {
+    let mut state = get_initial_state();
+    let output = "An error occurred";
+    reduce(&mut state, Action::SetOutput(output.to_string()));
+    assert_eq!(state.output_buffer, output);
+}
+
+#[test]
+fn test_parse_command_quit() {
+    let action = parse_command("quit");
+    assert!(matches!(action, OneOrMany::One(Action::Quit)));
+}
+
+#[test]
+fn test_parse_command_add() {
+    let action = parse_command("add new todo item");
+    assert!(matches!(action, OneOrMany::One(Action::AddTodo(s)) if s == "new todo item"));
+}
+
+#[test]
+fn test_parse_command_remove_multiple() {
+    let actions = parse_command("rm 1 3");
+    if let OneOrMany::Many(actions) = actions {
+        assert_eq!(actions.len(), 2);
+        assert!(matches!(actions[0], Action::RemoveTodo(1)));
+        assert!(matches!(actions[1], Action::RemoveTodo(3)));
+    } else {
+        panic!("Expected multiple actions");
     }
+}
 
-    #[test]
-    fn test_remove_todo() {
-        let state = initial_state();
-        let action = Action::RemoveTodo(1);
-        let new_state = reduce(state, action);
-        assert!(new_state.todos.is_empty());
+#[test]
+fn test_parse_command_toggle_status_implicit() {
+    let actions = parse_command("1 2");
+    if let OneOrMany::Many(actions) = actions {
+        assert_eq!(actions.len(), 2);
+        assert!(matches!(actions[0], Action::ToggleStatus(1)));
+        assert!(matches!(actions[1], Action::ToggleStatus(2)));
+    } else {
+        panic!("Expected multiple actions");
     }
+}
 
-    #[test]
-    fn test_complete_todo() {
-        let state = initial_state();
-        let action = Action::CompleteTodo(1);
-        let new_state = reduce(state, action);
-        assert!(matches!(new_state.todos[0].status, TodoStatus::Completed));
-    }
-
-    #[test]
-    fn test_start_todo() {
-        let state = initial_state();
-        let action = Action::StartTodo(1);
-        let new_state = reduce(state, action);
-        assert!(matches!(new_state.todos[0].status, TodoStatus::InProgress));
-        assert!(new_state.todos[0].timer.is_some());
-    }
-
-    #[test]
-    fn test_stop_todo() {
-        let mut state = initial_state();
-        let start_action = Action::StartTodo(1);
-        let new_state = reduce(state, start_action);
-
-        let stop_action = Action::StopTodo(1);
-        let final_state = reduce(new_state, stop_action);
-        assert!(matches!(final_state.todos[0].status, TodoStatus::Pending));
-        assert!(final_state.todos[0].timer.is_none());
-    }
-
-    #[test]
-    fn test_update_input() {
-        let state = initial_state();
-        let action = Action::UpdateInput("test".to_string());
-        let new_state = reduce(state, action);
-        assert_eq!(new_state.input_buffer, "test");
-    }
-
-    #[test]
-    fn test_clear_input() {
-        let mut state = initial_state();
-        state.input_buffer = "test".to_string();
-        let action = Action::ClearInput;
-        let new_state = reduce(state, action);
-        assert_eq!(new_state.input_buffer, "");
-    }
-
-    #[test]
-    fn test_quit_action() {
-        let state = initial_state();
-        let action = Action::Quit;
-        let new_state = reduce(state, action);
-        assert!(new_state.should_quit);
-    }
-
-    #[test]
-    fn test_handle_key_event_char() {
-        let action = handle_key_event(KeyCode::Char('a'), "");
-        assert!(matches!(action, Action::UpdateInput(s) if s == "a"));
-    }
-
-    #[test]
-    fn test_handle_key_event_backspace() {
-        let action = handle_key_event(KeyCode::Backspace, "abc");
-        assert!(matches!(action, Action::UpdateInput(s) if s == "ab"));
-    }
-
-    #[test]
-    fn test_handle_key_event_enter_add() {
-        let action = handle_key_event(KeyCode::Enter, "add new task");
-        assert!(matches!(action, Action::AddTodo(s) if s == "new task"));
-    }
-
-    #[test]
-    fn test_handle_key_event_enter_quit() {
-        let action = handle_key_event(KeyCode::Enter, "quit");
-        assert!(matches!(action, Action::Quit));
-    }
-
-    #[test]
-    fn test_handle_key_event_esc() {
-        let action = handle_key_event(KeyCode::Esc, "");
-        assert!(matches!(action, Action::Quit));
-    }
-
-    #[test]
-    fn test_remove_multiple() {
-        let action = handle_key_event(KeyCode::Enter, "rm 1 2");
-        assert!(matches!(action, Action::RemoveTodos(v) if v == vec![1, 2]));
-    }
+#[test]
+fn test_parse_command_invalid() {
+    let action = parse_command("invalid command");
+    assert!(matches!(action, OneOrMany::One(Action::SetOutput(s)) if s == "Invalid command"));
 }

@@ -35,3 +35,8 @@ pub fn cleanup_terminal<B: Backend + io::Write>(
 
     Ok(())
 }
+
+pub enum OneOrMany<T> {
+    One(T),
+    Many(Vec<T>),
+}

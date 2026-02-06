@@ -11,7 +11,7 @@ pub struct Todo {
     pub timer: Option<Timer>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum TodoStatus {
     Pending,
     InProgress,
