@@ -79,7 +79,6 @@ pub fn parse_command(input: &str) -> OneOrMany<Action> {
         "quit" | "exit" | "q" => OneOrMany::One(Action::Quit),
         "add" => {
             if !str_args.is_empty() || !int_args.is_empty() {
-                // Join all remaining tokens (ints and strings) as the todo text
                 let mut all_args = Vec::new();
                 for i in int_args.iter() {
                     all_args.push(i.to_string());
